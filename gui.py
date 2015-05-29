@@ -31,6 +31,12 @@ class GUI ( wx.Frame ):
 		self.job_menu = wx.Menu()
 		self.menubar.Append( self.job_menu, u"&Job" ) 
 		
+		self.contacts_menu = wx.Menu()
+		self.view_contacts_menuitem = wx.MenuItem( self.contacts_menu, wx.ID_ANY, u"View contacts...", wx.EmptyString, wx.ITEM_NORMAL )
+		self.contacts_menu.AppendItem( self.view_contacts_menuitem )
+		
+		self.menubar.Append( self.contacts_menu, u"&Contacts" ) 
+		
 		self.help_menu = wx.Menu()
 		self.menubar.Append( self.help_menu, u"&Help" ) 
 		
@@ -310,6 +316,172 @@ class GUI ( wx.Frame ):
 		self.SetSizer( container_sizer )
 		self.Layout()
 		self.statusbar = self.CreateStatusBar( 1, wx.ST_SIZEGRIP, wx.ID_ANY )
+		
+		self.Centre( wx.BOTH )
+	
+	def __del__( self ):
+		pass
+	
+
+###########################################################################
+## Class AddJob
+###########################################################################
+
+class AddJob ( wx.Dialog ):
+	
+	def __init__( self, parent ):
+		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Add Job", pos = wx.DefaultPosition, size = wx.DefaultSize, style = wx.DEFAULT_DIALOG_STYLE )
+		
+		self.SetSizeHintsSz( wx.DefaultSize, wx.DefaultSize )
+		
+		container_sizer = wx.BoxSizer( wx.VERTICAL )
+		
+		self.container_panel = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		main_sizer = wx.BoxSizer( wx.VERTICAL )
+		
+		repeat_sizer = wx.GridBagSizer( 0, 0 )
+		repeat_sizer.SetFlexibleDirection( wx.BOTH )
+		repeat_sizer.SetNonFlexibleGrowMode( wx.FLEX_GROWMODE_SPECIFIED )
+		
+		self.add_job = wx.StaticText( self.container_panel, wx.ID_ANY, u"Add Job", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.add_job.Wrap( -1 )
+		self.add_job.SetFont( wx.Font( 18, 70, 90, 90, False, wx.EmptyString ) )
+		
+		repeat_sizer.Add( self.add_job, wx.GBPosition( 0, 0 ), wx.GBSpan( 1, 2 ), wx.ALL, 5 )
+		
+		self.repeat_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"Repeat", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.repeat_label.Wrap( -1 )
+		repeat_sizer.Add( self.repeat_label, wx.GBPosition( 2, 0 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER|wx.ALL, 5 )
+		
+		self.client_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"Client", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.client_label.Wrap( -1 )
+		repeat_sizer.Add( self.client_label, wx.GBPosition( 1, 0 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER|wx.ALL, 5 )
+		
+		client_sizer = wx.BoxSizer( wx.HORIZONTAL )
+		
+		self.client_entry = wx.TextCtrl( self.container_panel, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size( -1,-1 ), 0 )
+		self.client_entry.Enable( False )
+		
+		client_sizer.Add( self.client_entry, 1, wx.ALIGN_CENTER|wx.ALL, 5 )
+		
+		self.choose_client_button = wx.Button( self.container_panel, wx.ID_ANY, u"...", wx.DefaultPosition, wx.Size( 35,-1 ), 0 )
+		client_sizer.Add( self.choose_client_button, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
+		
+		
+		repeat_sizer.Add( client_sizer, wx.GBPosition( 1, 1 ), wx.GBSpan( 1, 4 ), wx.EXPAND, 5 )
+		
+		self.every_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"every", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.every_label.Wrap( -1 )
+		repeat_sizer.Add( self.every_label, wx.GBPosition( 2, 2 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
+		
+		freq_choiceChoices = [ u"Monthly", u"Weekly" ]
+		self.freq_choice = wx.Choice( self.container_panel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, freq_choiceChoices, 0 )
+		self.freq_choice.SetSelection( 0 )
+		repeat_sizer.Add( self.freq_choice, wx.GBPosition( 2, 1 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
+		
+		count_comboChoices = [ u"1", u"2", u"3", u"4", u"5", u"6" ]
+		self.count_combo = wx.ComboBox( self.container_panel, wx.ID_ANY, u"1", wx.DefaultPosition, wx.Size( 50,-1 ), count_comboChoices, 0 )
+		repeat_sizer.Add( self.count_combo, wx.GBPosition( 2, 3 ), wx.GBSpan( 1, 1 ), wx.ALL, 5 )
+		
+		self.freq_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"month(s)", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.freq_label.Wrap( -1 )
+		repeat_sizer.Add( self.freq_label, wx.GBPosition( 2, 4 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
+		
+		
+		main_sizer.Add( repeat_sizer, 1, wx.EXPAND, 5 )
+		
+		confim_buttons_sizer = wx.BoxSizer( wx.HORIZONTAL )
+		
+		
+		confim_buttons_sizer.AddSpacer( ( 0, 0), 1, wx.EXPAND, 5 )
+		
+		self.cancel_button = wx.Button( self.container_panel, wx.ID_ANY, u"Cancel", wx.DefaultPosition, wx.DefaultSize, 0 )
+		confim_buttons_sizer.Add( self.cancel_button, 0, wx.ALL, 5 )
+		
+		self.add_button = wx.Button( self.container_panel, wx.ID_ANY, u"Add", wx.DefaultPosition, wx.DefaultSize, 0 )
+		confim_buttons_sizer.Add( self.add_button, 0, wx.ALL, 5 )
+		
+		
+		main_sizer.Add( confim_buttons_sizer, 0, wx.EXPAND|wx.TOP, 15 )
+		
+		
+		self.container_panel.SetSizer( main_sizer )
+		self.container_panel.Layout()
+		main_sizer.Fit( self.container_panel )
+		container_sizer.Add( self.container_panel, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		self.SetSizer( container_sizer )
+		self.Layout()
+		container_sizer.Fit( self )
+		
+		self.Centre( wx.BOTH )
+	
+	def __del__( self ):
+		pass
+	
+
+###########################################################################
+## Class ChooseContact
+###########################################################################
+
+class ChooseContact ( wx.Dialog ):
+	
+	def __init__( self, parent ):
+		wx.Dialog.__init__ ( self, parent, id = wx.ID_ANY, title = u"Choose Contact", pos = wx.DefaultPosition, size = wx.Size( 640,480 ), style = wx.DEFAULT_DIALOG_STYLE )
+		
+		self.SetSizeHintsSz( wx.DefaultSize, wx.DefaultSize )
+		
+		conatiner_sizer = wx.BoxSizer( wx.VERTICAL )
+		
+		self.container_panel = wx.Panel( self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
+		main_sizer = wx.BoxSizer( wx.VERTICAL )
+		
+		self.title_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"Choose Contact", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.title_label.Wrap( -1 )
+		self.title_label.SetFont( wx.Font( 18, 70, 90, 90, False, wx.EmptyString ) )
+		
+		main_sizer.Add( self.title_label, 0, wx.ALL, 5 )
+		
+		content_sizer = wx.BoxSizer( wx.HORIZONTAL )
+		
+		contact_sizer = wx.BoxSizer( wx.VERTICAL )
+		
+		self.filter_entry = wx.TextCtrl( self.container_panel, wx.ID_ANY, u"Quick find...", wx.DefaultPosition, wx.DefaultSize, 0 )
+		contact_sizer.Add( self.filter_entry, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL|wx.EXPAND, 5 )
+		
+		self.contact_list = wx.ListCtrl( self.container_panel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_HRULES|wx.LC_REPORT )
+		contact_sizer.Add( self.contact_list, 1, wx.ALL|wx.EXPAND, 5 )
+		
+		
+		content_sizer.Add( contact_sizer, 1, wx.EXPAND, 5 )
+		
+		
+		main_sizer.Add( content_sizer, 1, wx.EXPAND, 5 )
+		
+		confirm_button_sizer = wx.BoxSizer( wx.HORIZONTAL )
+		
+		
+		confirm_button_sizer.AddSpacer( ( 0, 0), 1, wx.EXPAND, 5 )
+		
+		self.cancel_button = wx.Button( self.container_panel, wx.ID_ANY, u"Cancel", wx.DefaultPosition, wx.DefaultSize, 0 )
+		confirm_button_sizer.Add( self.cancel_button, 0, wx.ALL, 5 )
+		
+		self.ok_button = wx.Button( self.container_panel, wx.ID_ANY, u"Ok", wx.DefaultPosition, wx.DefaultSize, 0 )
+		confirm_button_sizer.Add( self.ok_button, 0, wx.ALL, 5 )
+		
+		
+		main_sizer.Add( confirm_button_sizer, 0, wx.EXPAND, 5 )
+		
+		
+		self.container_panel.SetSizer( main_sizer )
+		self.container_panel.Layout()
+		main_sizer.Fit( self.container_panel )
+		conatiner_sizer.Add( self.container_panel, 1, wx.EXPAND |wx.ALL, 5 )
+		
+		
+		self.SetSizer( conatiner_sizer )
+		self.Layout()
 		
 		self.Centre( wx.BOTH )
 	

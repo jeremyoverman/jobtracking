@@ -111,8 +111,6 @@ class Calendar(wx.Panel):
                 self.date_dict[date] = obj
                 y += 1
             x += 1
-                
-            
         
         self.Layout()
         self.Refresh()

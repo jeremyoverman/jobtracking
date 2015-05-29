@@ -5,7 +5,7 @@ Created on May 23, 2015
 '''
 
 import wx, datetime, calendar
-import googlecalendar, wxcalendar, daylist
+import googleapi, wxcalendar, daylist
 import gui
 
 calendar.setfirstweekday(calendar.SUNDAY)
@@ -15,12 +15,14 @@ class JobList:
     def __init__(self, joblist):
         self.joblist = joblist
         self.curr_selected = None
+        self.date = None
     
     def handleList(self, evt):
         selection = self.joblist.GetSelection()
         jobdetails.loadJob(self.jobs[selection])
     
     def getDaysEvents(self, date):
+        self.date = date
         self.jobs = {}
         main.fetchEvents(date)
         self.events = gcal.getDayList(date)
@@ -220,6 +222,98 @@ class DayView:
             
             day.setTitle(curr_date, short=True)
 
+class AddJobWindow():
+    def __init__(self):
+        self.gui = gui.AddJob(window)
+        self.contact = None
+        
+        self.gui.choose_client_button.Bind(wx.EVT_BUTTON, self.getContact)
+        self.gui.freq_choice.Bind(wx.EVT_CHOICE, self.updateFreq)
+        self.gui.add_button.Bind(wx.EVT_BUTTON, self.addJob)
+        
+    def getContact(self, evt=None):
+        c = ContactsWindow(choose=True)
+        c.gui.ShowModal()
+        atomid = c.contact
+        if atomid:
+            self.contact = atomid
+            name = contacts.getFullName(atomid)
+            self.gui.client_entry.SetValue(name)
+        
+    def updateFreq(self, evt=None):
+        if self.gui.freq_choice.GetStringSelection() == "Weekly":
+            self.gui.freq_label.SetLabel("week(s)")
+        else:
+            self.gui.freq_label.SetLabel("month(s)")
+            
+    def addJob(self, evt=None):
+        client = self.gui.client_entry.GetValue()
+        frequency = self.gui.freq_choice.GetValue()
+        count = self.gui.count_combo.GetValue()
+
+class ContactsWindow():
+    def __init__(self, choose=False):
+        self.gui = gui.ChooseContact(window)
+        self.contacts = {}
+        self.contact = None
+        
+        self.gui.contact_list.InsertColumn(0, "Name", width=100)
+        self.gui.contact_list.InsertColumn(1, "Company", width=100)
+        self.gui.contact_list.InsertColumn(2, "Phone", width=100)
+        self.gui.contact_list.InsertColumn(3, "Address", width=300)
+        
+        self.gui.filter_entry.Bind(wx.EVT_TEXT, self.filter)
+        
+        if not choose:
+            self.gui.title_label.SetLabel("Contacts")
+            self.gui.cancel_button.Show(False)
+            self.gui.Layout()
+        
+        self.fillContacts()
+        
+        self.gui.ok_button.Bind(wx.EVT_BUTTON, lambda evt: self.returnContact())
+        self.gui.cancel_button.Bind(wx.EVT_BUTTON, lambda evt: self.returnContact(cancel=True))
+        self.gui.ok_button.SetDefault()
+        
+    def returnContact(self, cancel=False):
+        selection = self.gui.contact_list.GetFirstSelected()
+        if not cancel and selection != -1:
+            self.contact = self.contacts[selection]
+            
+        self.gui.Close()
+        
+    def fillContacts(self):
+        contacts_dict = contacts.getAllContactsInGroup("Clients")
+        
+        i = 0
+        for atomid in contacts_dict:
+            name = contacts.getFullName(atomid)
+            company = contacts.getCompany(atomid)
+            phone = contacts.getPhoneNumber(atomid)
+            address = contacts.getAddress(atomid)
+            self.gui.contact_list.Append((name,
+                                          company is None and " " or company,
+                                          phone is None and " " or phone,
+                                          address is None and " " or address))
+            self.contacts[i] = atomid
+            i += 1
+            
+    def filter(self, evt):
+        contents = self.gui.filter_entry.GetValue()
+        index = self.gui.contact_list.FindItem(0, contents, True)
+        self.gui.contact_list.Select(self.gui.contact_list.GetFirstSelected(), False)
+        if index != None:
+            self.gui.contact_list.EnsureVisible(index)
+            self.gui.contact_list.Select(index)
+
+class MenuBar():
+    def __init__(self):
+        window.Bind(wx.EVT_MENU, self.showContacts, window.view_contacts_menuitem)
+    
+    def showContacts(self, evt=None):
+        contacts_window = ContactsWindow(False)
+        contacts_window.gui.ShowModal()
+
 class Main:
     def __init__(self):
         self.curr_date = datetime.date.today()
@@ -231,6 +325,12 @@ class Main:
         window.prev_time_button.Bind(wx.EVT_BUTTON, lambda evt: self.changeDate("backward"))
         
         self.events = self.fetchEvents(self.curr_date)
+        
+        window.add_job_button.Bind(wx.EVT_BUTTON, self.addJob)
+        
+    def addJob(self, evt):
+        addjob = AddJobWindow()
+        addjob.gui.ShowModal()
     
     def fetchEvents(self, date):
         month = gcal.getEventsList(date)
@@ -304,8 +404,14 @@ if __name__ == '__main__':
     app = wx.App()
     
     window = gui.GUI(None)
+    menubar = MenuBar()
     
-    gcal = googlecalendar.GoogleCalendar()
+    gapi = googleapi.API()
+    gapi.authenticate()
+    
+    gcal = googleapi.Calendar(gapi)
+    contacts = googleapi.Contacts(gapi)
+    
     wxcal = Calendar()
     joblist = JobList(window.day_list)
     jobdetails = JobDetails()
