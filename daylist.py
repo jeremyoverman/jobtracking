@@ -96,6 +96,20 @@ class DayList(wx.Panel):
         self.end_filler = wx.StaticText(self)
         self.end_filler.SetBackgroundColour(wx.Colour(*NORMAL_BACKGROUND))
         
+        self.button_panel = wx.Panel(self)
+        self.button_panel.SetBackgroundColour(wx.Colour(*NORMAL_BACKGROUND))
+        
+        self.button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.add_button = wx.BitmapButton(self.button_panel, -1, wx.Bitmap("icons/add.png", wx.BITMAP_TYPE_PNG))
+        self.remove_button = wx.BitmapButton(self.button_panel, -1, wx.Bitmap("icons/remove.png", wx.BITMAP_TYPE_PNG))
+        
+        self.button_sizer.Add((0,0), 1, wx.EXPAND)
+        self.button_sizer.Add(self.remove_button, 0, wx.RIGHT, 3)
+        self.button_sizer.Add(self.add_button, 0, wx.LEFT, 3)
+        self.button_sizer.Add((0,0), 1, wx.EXPAND)
+        
+        self.button_panel.SetSizer(self.button_sizer)
+        
         #self.title_sizer.Add((0,0), 1, wx.EXPAND)
         self.title_sizer.Add(self.title_label, 0)
         self.title_sizer.Add((0,0), 1, wx.EXPAND)
@@ -112,6 +126,7 @@ class DayList(wx.Panel):
         self.main_sizer.Add(self.not_started_sizer, 0, wx.EXPAND)
         
         self.main_sizer.Add(self.end_filler, 1, wx.EXPAND)
+        self.main_sizer.Add(self.button_panel, 0, wx.EXPAND)
         
         self.__init__bindings()
         self.SetSizer(self.main_sizer)
@@ -131,7 +146,7 @@ class DayList(wx.Panel):
     def setTitle(self, date, short=False):
         name = calendar.day_name[date.weekday()]
         if short: name = name[:3]
-        self.title_label.SetLabel("%s, %d" % (name, date.day))
+        self.title_label.SetLabel("%s, %d/%d" % (name, date.month, date.day))
     
     def Clear(self):
         self.jobs = {}

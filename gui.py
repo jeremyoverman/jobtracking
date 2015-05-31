@@ -231,29 +231,29 @@ class GUI ( wx.Frame ):
 		self.job_contact_panel = wx.Panel( self.job_panel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
 		job_contact_sizer = wx.BoxSizer( wx.VERTICAL )
 		
-		self.job_contact_name_label = wx.StaticText( self.job_contact_panel, wx.ID_ANY, u"John Doe", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.job_contact_name_label = wx.StaticText( self.job_contact_panel, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.job_contact_name_label.Wrap( -1 )
 		self.job_contact_name_label.SetFont( wx.Font( 12, 74, 90, 92, False, "Arial" ) )
 		
-		job_contact_sizer.Add( self.job_contact_name_label, 0, 0, 0 )
+		job_contact_sizer.Add( self.job_contact_name_label, 0, wx.EXPAND, 0 )
 		
-		self.job_contact_phone_label = wx.StaticText( self.job_contact_panel, wx.ID_ANY, u"(555) 555 - 5555", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.job_contact_phone_label = wx.StaticText( self.job_contact_panel, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.job_contact_phone_label.Wrap( -1 )
 		self.job_contact_phone_label.SetFont( wx.Font( 9, 70, 90, 92, False, "Arial" ) )
 		
-		job_contact_sizer.Add( self.job_contact_phone_label, 0, 0, 5 )
+		job_contact_sizer.Add( self.job_contact_phone_label, 0, wx.EXPAND, 5 )
 		
-		self.job_contact_address_label = wx.StaticText( self.job_contact_panel, wx.ID_ANY, u"5555 Road Name\nTown Name, State\nAddition Info", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.job_contact_address_label = wx.StaticText( self.job_contact_panel, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.job_contact_address_label.Wrap( -1 )
 		self.job_contact_address_label.SetFont( wx.Font( 9, 74, 93, 92, False, "Arial" ) )
 		
-		job_contact_sizer.Add( self.job_contact_address_label, 0, wx.TOP, 10 )
+		job_contact_sizer.Add( self.job_contact_address_label, 1, wx.EXPAND|wx.TOP, 10 )
 		
 		
 		self.job_contact_panel.SetSizer( job_contact_sizer )
 		self.job_contact_panel.Layout()
 		job_contact_sizer.Fit( self.job_contact_panel )
-		job_hor_sizer.Add( self.job_contact_panel, 0, wx.LEFT, 35 )
+		job_hor_sizer.Add( self.job_contact_panel, 1, wx.LEFT, 35 )
 		
 		
 		job_sizer.Add( job_hor_sizer, 1, wx.EXPAND, 5 )
@@ -275,24 +275,6 @@ class GUI ( wx.Frame ):
 		
 		self.day_list = daylist.DayList(self.day_view)
 		day_view_sizer.Add( self.day_list, 1, wx.ALL|wx.EXPAND, 0 )
-		
-		self.day_view_butt_panel = wx.Panel( self.day_view, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL )
-		day_view_butt_sizer = wx.BoxSizer( wx.HORIZONTAL )
-		
-		self.add_job_button = wx.Button( self.day_view_butt_panel, wx.ID_ANY, u"Add Job", wx.DefaultPosition, wx.DefaultSize, 0 )
-		day_view_butt_sizer.Add( self.add_job_button, 0, 0, 0 )
-		
-		
-		day_view_butt_sizer.AddSpacer( ( 0, 0), 1, wx.EXPAND, 5 )
-		
-		self.remove_job_button = wx.Button( self.day_view_butt_panel, wx.ID_ANY, u"Remove Job", wx.DefaultPosition, wx.DefaultSize, 0 )
-		day_view_butt_sizer.Add( self.remove_job_button, 0, 0, 0 )
-		
-		
-		self.day_view_butt_panel.SetSizer( day_view_butt_sizer )
-		self.day_view_butt_panel.Layout()
-		day_view_butt_sizer.Fit( self.day_view_butt_panel )
-		day_view_sizer.Add( self.day_view_butt_panel, 0, wx.EXPAND|wx.TOP, 5 )
 		
 		
 		self.day_view.SetSizer( day_view_sizer )
@@ -368,24 +350,43 @@ class AddJob ( wx.Dialog ):
 		client_sizer.Add( self.choose_client_button, 0, wx.ALIGN_CENTER|wx.ALL, 5 )
 		
 		
-		repeat_sizer.Add( client_sizer, wx.GBPosition( 1, 1 ), wx.GBSpan( 1, 4 ), wx.EXPAND, 5 )
+		repeat_sizer.Add( client_sizer, wx.GBPosition( 1, 1 ), wx.GBSpan( 1, 6 ), wx.EXPAND, 5 )
 		
 		self.every_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"every", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.every_label.Wrap( -1 )
+		self.every_label.Enable( False )
+		
 		repeat_sizer.Add( self.every_label, wx.GBPosition( 2, 2 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
 		
-		freq_choiceChoices = [ u"Monthly", u"Weekly" ]
+		freq_choiceChoices = [ u"Once", u"Monthly", u"Weekly" ]
 		self.freq_choice = wx.Choice( self.container_panel, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, freq_choiceChoices, 0 )
 		self.freq_choice.SetSelection( 0 )
 		repeat_sizer.Add( self.freq_choice, wx.GBPosition( 2, 1 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
 		
 		count_comboChoices = [ u"1", u"2", u"3", u"4", u"5", u"6" ]
 		self.count_combo = wx.ComboBox( self.container_panel, wx.ID_ANY, u"1", wx.DefaultPosition, wx.Size( 50,-1 ), count_comboChoices, 0 )
+		self.count_combo.Enable( False )
+		
 		repeat_sizer.Add( self.count_combo, wx.GBPosition( 2, 3 ), wx.GBSpan( 1, 1 ), wx.ALL, 5 )
 		
 		self.freq_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"month(s)", wx.DefaultPosition, wx.DefaultSize, 0 )
 		self.freq_label.Wrap( -1 )
+		self.freq_label.Enable( False )
+		
 		repeat_sizer.Add( self.freq_label, wx.GBPosition( 2, 4 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5 )
+		
+		self.on_label = wx.StaticText( self.container_panel, wx.ID_ANY, u"on", wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.on_label.Wrap( -1 )
+		self.on_label.Enable( False )
+		
+		repeat_sizer.Add( self.on_label, wx.GBPosition( 2, 5 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER|wx.ALL, 5 )
+		
+		style_choiceChoices = []
+		self.style_choice = wx.Choice( self.container_panel, wx.ID_ANY, wx.DefaultPosition, wx.Size( 115,-1 ), style_choiceChoices, 0 )
+		self.style_choice.SetSelection( 0 )
+		self.style_choice.Enable( False )
+		
+		repeat_sizer.Add( self.style_choice, wx.GBPosition( 2, 6 ), wx.GBSpan( 1, 1 ), wx.ALIGN_CENTER|wx.ALL, 5 )
 		
 		
 		main_sizer.Add( repeat_sizer, 1, wx.EXPAND, 5 )

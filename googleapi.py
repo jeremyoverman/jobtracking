@@ -20,8 +20,6 @@ import datetime, calendar
 
 from bs4 import BeautifulSoup as soup
 
-CALENDAR_ID = "us7s95mde08sqbnmt0i7jgdd74@group.calendar.google.com"
-
 #===============================================================================
 # Google Calendar
 #===============================================================================
@@ -30,6 +28,7 @@ class Calendar():
     def __init__(self, api):
         self.api = api
         self.cache = {}
+        self.calendar_id = "primary"
     
     def gDatetimeToDatetime(self, gdate):
         date_tuple = gdate.split("T")[0].split("-")
@@ -64,52 +63,98 @@ class Calendar():
         year = date.year
         month = date.month
         
-        if self.cache.has_key(date.month):
-            return self.cache[date.month]
-        else:
-            if not update: return None
+        if not update:
+            if self.cache.has_key(date.month):
+                return self.cache[date.month]
+            else:
+                return False
         
         last_day = calendar.monthrange(year, month)[1]
         start = datetime.datetime(year, month, 1, 0, 0, 0) - datetime.timedelta(days=31)
         end = datetime.datetime(year, month, last_day, 11, 59, 59) + datetime.timedelta(days=31)
         
         eventsResult = self.api.calendar.events().list(
-            calendarId=CALENDAR_ID,
+            calendarId=self.calendar_id,
             timeMin=start.isoformat() + "Z",
             timeMax=end.isoformat() + "Z",
             singleEvents=True,
             orderBy='startTime').execute()
         events = eventsResult.get('items', [])
         
-        if month:
-            self.cache[month] = events
-            
+        self.cache[month] = events
+        
         return events
     
-    def addJob(self, date, contactatomid, frequency, count):
-        if frequency.lower() == "weekly":
-            frequency = "WEEKLY"
-        else:
-            frequency = "MONTHLY"
-        
-        rrule = "RRULE:FREQ=%s;INTERVAL=%d" % (frequency, count)
-        contact_name = contacts.getFullName(contactatomid)
-        summary = "%s (%s)" % contacts.getCompany(contactatomid), contact_name
-        location = contacts.getAddress(contactatomid)
+    def getEventFromId(self, eventid):
+        for month in self.cache:
+            events = self.cache[month]
+            for event in events:
+                if event["id"] == eventid:
+                    return event
+    
+    def addJob(self, date, contactatomid, contactsapi, rrule=None):
+        contact_name = contactsapi.getFullName(contactatomid)
+        company = contactsapi.getCompany(contactatomid)
+        if company: summary = "%s (%s)" % (company, contact_name)
+        else: summary = contact_name
+        location = contactsapi.getAddress(contactatomid)
         
         event = {
-                 'summary': contact_name,
+                 'summary': summary,
                  'start': {'date': date.isoformat()},
                  'end': {'date': date.isoformat()},
-                 'recurrence': [rrule],
-                 'extendedProperties': {'contact': contactatomid},
-                 'location': location
+                 'extendedProperties': {"shared":
+                                         {'contact': contactatomid}
+                                       }
                  }
         
-        result = self.api.calendar.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-        self.cache[date.month] = result
-        print result
+        if location: event["location"] = location
+        if rrule: event["recurrence"] = [rrule]
+            
+        result = self.api.calendar.events().insert(calendarId=self.calendar_id, body=event).execute()
+        self.cache[date.month].append(result)
         return result
+    
+    def isRecurring(self, eventid):
+        pass
+    
+    def deleteJob(self, eventid, future=False, enddate=None):
+        if not future:
+            self.api.calendar.events().delete(calendarId=self.calendar_id,
+                                              eventId=eventid).execute()
+        else:
+            event = self.api.calendar.events().get(calendarId=self.calendar_id,
+                                                     eventId=eventid#,
+                                                     #timeMin=dt.isoformat() + "Z"
+                                                     ).execute()
+            recurring_id = event["recurringEventId"]
+            recurring_event = self.api.calendar.events().get(calendarId=self.calendar_id,
+                                                             eventId=recurring_id
+                                                             ).execute()
+            
+            previous_day = enddate - datetime.timedelta(days=1)
+            enddt = "%sT000000Z" % previous_day.isoformat().replace("-", "")
+            
+            old_rrule = recurring_event["recurrence"][0]
+            new_rrule = ""
+            
+            for field in old_rrule.split("RRULE:")[1].split(";"):
+                if field[:5] != "UNTIL":
+                    new_rrule += field + ";"
+            new_rrule += "UNTIL=" + enddt
+            new_rrule = "RRULE:" + new_rrule
+            
+            recurring_event["recurrence"][0] = new_rrule
+            
+            result = self.api.calendar.events().update(calendarId=self.calendar_id,
+                                                       eventId=recurring_id,
+                                                       body=recurring_event
+                                                       ).execute()
+             
+            if result["start"]["date"] == enddate.isoformat():
+                self.deleteJob(recurring_id)
+                
+            self.cache = {}
 
 #===============================================================================
 # Google Contacts
@@ -174,21 +219,26 @@ class Contacts():
 #===============================================================================
 
 app = Flask(__name__)
+code = None
 
 @app.route('/callback')
 def callback():
+    global code
+
     #Handle the redirect URI request
+    print 1
     error = request.args.get('error', '')
+    print 2
     if error:
+        print 3
         return "Error: " + error
     
     #Get the code
+    print 4
     code = request.args.get('code')
     
-    #Pass it along to the api call to be used later
-    api.code = code
-    
     #Kill the HTTP server
+    print 6
     request.environ.get('werkzeug.server.shutdown')()
     return "You may close this window."
     
@@ -235,6 +285,8 @@ class API():
         webbrowser.open_new(url)
         app.run(port=8000)
         
+        global code
+        self.code = code
         credentials = flow.step2_exchange(self.code)
         store.put(credentials)
         

@@ -16,6 +16,29 @@ class JobList:
         self.joblist = joblist
         self.curr_selected = None
         self.date = None
+        
+        self.joblist.add_button.Enable(False)
+        self.joblist.remove_button.Enable(False)
+        self.joblist.add_button.Bind(wx.EVT_BUTTON, self.addJob)
+        self.joblist.remove_button.Bind(wx.EVT_BUTTON, self.removeJob)
+        
+    def removeJob(self, evt=None):
+        eventid = jobdetails.eventid
+        event = gcal.getEventFromId(eventid)
+        if event.has_key("recurringEventId"):
+            gcal.deleteJob(eventid, future=True, enddate=self.date)
+        else:
+            gcal.deleteJob(eventid)
+        
+        for event in main.fetchEvents(self.date, True):
+            print event
+        wxcal.colorCodeCalendar()
+        wxcal.activateDate(self.date)
+        joblist.getDaysEvents(self.date)
+        
+    def addJob(self, evt=None):
+        addjob = AddJobWindow(self.date)
+        addjob.gui.ShowModal()
     
     def handleList(self, evt):
         selection = self.joblist.GetSelection()
@@ -44,6 +67,9 @@ class JobList:
             self.joblist.setJobStatus(jobid, status)
             
             i += 1
+        
+        self.joblist.add_button.Enable()
+        self.joblist.remove_button.Enable()
     
     def handleClick(self, evt):
         obj = evt.GetEventObject()
@@ -64,7 +90,7 @@ class JobList:
             
 class JobDetails:
     def __init__(self):
-        pass
+        self.eventid = None
     
     def getJobFromEvent(self, eventid):
         job = None
@@ -72,10 +98,12 @@ class JobDetails:
             if event["id"] == eventid:
                 job = event
         
+        self.eventid = eventid
         return job
     
     def loadJob(self, eventid):
         self.clearJob()
+        window.day_list.remove_button.Enable()
         
         job = self.getJobFromEvent(eventid)
                 
@@ -93,6 +121,10 @@ class JobDetails:
             startdt = gcal.gDatetimeToDatetime(gstartdate)
             enddt = gcal.gDatetimeToDatetime(genddate)
             self.setStartEndTimes(startdt, enddt)
+        
+        if job.has_key("extendedProperties"):
+            contact = job["extendedProperties"]["shared"]["contact"]
+            self.fillContact(contact)
     
     def getJobStatus(self, eventid):
         job = self.getJobFromEvent(eventid)
@@ -107,6 +139,8 @@ class JobDetails:
             return daylist.JOB_NOT_STARTED
         
     def clearJob(self):
+        self.eventid = None
+        window.day_list.remove_button.Enable(False)
         window.job_title_label.SetLabel("")
         window.job_services_listbox.Clear()
         
@@ -116,6 +150,10 @@ class JobDetails:
         window.job_end_time_hour_combo.SetValue(" ")
         window.job_end_time_min_combo.SetValue(" ")
         window.job_end_time_suffix_combo.SetValue(" ")
+        
+        window.job_contact_name_label.SetLabel(" ")
+        window.job_contact_phone_label.SetLabel(" ")
+        window.job_contact_address_label.SetLabel(" ")
     
     def fillServices(self, description):
         for line in description.split("\n"):
@@ -143,6 +181,15 @@ class JobDetails:
             window.job_end_time_hour_combo.SetValue(str(end_hour))
             window.job_end_time_min_combo.SetValue("%02d" % enddt.minute)
             window.job_end_time_suffix_combo.SetValue(str(end_suffix))
+            
+    def fillContact(self, contact):
+        name = contacts.getFullName(contact)
+        phone = contacts.getPhoneNumber(contact)
+        address = contacts.getAddress(contact)
+                
+        window.job_contact_name_label.SetLabel(name)
+        window.job_contact_phone_label.SetLabel(phone)
+        window.job_contact_address_label.SetLabel(address)
 
 class Calendar:
     def __init__(self):
@@ -161,6 +208,7 @@ class Calendar:
     def colorCodeCalendar(self):
         jobs = {}
         for event in main.fetchEvents(main.curr_date):
+            
             if event["start"].has_key("date"):
                 gdate = event["start"].get("date")
             else:
@@ -170,7 +218,7 @@ class Calendar:
                 jobs[dt] += 1
             else:
                 jobs[dt] = 1
-                
+        self.calendar.setMonth(self.curr_date.year, self.curr_date.month)
         for job in jobs:
             if job.month == self.curr_date.month:
                 if jobs[job] > self.max_jobs:
@@ -178,12 +226,21 @@ class Calendar:
                 shade = 255 - ((float(jobs[job]) / float(self.max_jobs)) * 255)
                 day = self.calendar.date_dict[job]
                 day.setColour(255, shade, shade)
+        
+        self.calendar.Refresh()
     
     def setCalendarTitle(self, year, month):
         title = "%s %s" % (calendar.month_name[month], year)
         window.calendar_title.SetLabel(title)
         
         self.curr_date = datetime.datetime(year, month, 1)
+    
+    def activateDate(self, date):
+        day = self.calendar.date_dict[date]
+        day.setActive()
+        self.selected_date = day
+        joblist.getDaysEvents(day.date)
+        jobdetails.clearJob()
     
     def handleClick(self, evt):
         if self.selected_date:
@@ -223,13 +280,19 @@ class DayView:
             day.setTitle(curr_date, short=True)
 
 class AddJobWindow():
-    def __init__(self):
+    def __init__(self, date):
         self.gui = gui.AddJob(window)
         self.contact = None
+        self.date = date
+        self.recc_rrule = None
+        self.recc_freq = None
+        self.recc_interval = None
         
         self.gui.choose_client_button.Bind(wx.EVT_BUTTON, self.getContact)
         self.gui.freq_choice.Bind(wx.EVT_CHOICE, self.updateFreq)
+        self.gui.count_combo.Bind(wx.EVT_COMBOBOX, self.updateRepeatStyle)
         self.gui.add_button.Bind(wx.EVT_BUTTON, self.addJob)
+        self.gui.cancel_button.Bind(wx.EVT_BUTTON, lambda evt: self.gui.Close())
         
     def getContact(self, evt=None):
         c = ContactsWindow(choose=True)
@@ -240,16 +303,113 @@ class AddJobWindow():
             name = contacts.getFullName(atomid)
             self.gui.client_entry.SetValue(name)
         
-    def updateFreq(self, evt=None):
-        if self.gui.freq_choice.GetStringSelection() == "Weekly":
-            self.gui.freq_label.SetLabel("week(s)")
+    def enableRepeat(self, enable=True):
+        self.gui.every_label.Enable(enable)
+        self.gui.count_combo.Enable(enable)
+        self.gui.freq_label.Enable(enable)
+        self.gui.on_label.Enable(enable)
+        self.gui.style_choice.Enable(enable)
+    
+    def setRRule(self, evt=None):
+        style = self.gui.style_choice.GetSelection()
+        freq = self.gui.freq_choice.GetStringSelection()
+        if freq == "Monthly":
+            if style == 1:
+                self.recc_rrule = "RRULE:FREQ=MONTHLY;"
+                self.recc_rrule += "BYMONTHDAY=" + str(self.date.day) + ";"
+                self.recc_rrule += "INTERVAL=" + str(self.recc_interval)
+            else:
+                day_name = calendar.day_name[calendar.weekday(self.date.year,
+                                                              self.date.month,
+                                                              self.date.day)]
+                c = calendar.monthcalendar(self.date.year, self.date.month)
+                week_num = 1
+                for week in c:
+                    if self.date.day in week: break
+                    week_num += 1
+                    
+                self.recc_rrule = "RRULE:FREQ=MONTHLY;"
+                self.recc_rrule += "BYDAY=%d%s;" % (week_num, day_name.upper()[:2])
+                self.recc_rrule += "INTERVAL=" + str(self.recc_interval)
+        elif freq == "Weekly":
+            self.recc_rrule = "RRULE:FREQ=WEEKLY;"
+            self.recc_rrule += "INTERVAL=" + str(self.recc_interval)
         else:
+            self.recc_rrule = None
+            
+    
+    def getNumberSuffix(self, number):
+        if str(number)[-1] == '1':
+                suffix = "st"
+        elif str(number)[-1] == '2':
+            suffix = "nd"
+        elif str(number)[-1] == '3':
+            suffix = "rd"
+        else:
+            suffix = "th"
+        
+        return suffix
+    
+    def updateRepeatStyle(self, evt=None):
+        self.gui.style_choice.Clear()
+        
+        freq = self.gui.freq_choice.GetStringSelection()
+        interval = self.gui.count_combo.GetValue()
+        day_name = calendar.day_name[calendar.weekday(self.date.year,
+                                                      self.date.month,
+                                                      self.date.day)]
+                
+        if freq == "Monthly":
+            c = calendar.monthcalendar(self.date.year, self.date.month)
+            week_num = 1
+            for week in c:
+                if self.date.day in week: break
+                week_num += 1
+            
+            weeksuffix = self.getNumberSuffix(week)
+            
+            day = self.date.day
+            daysuffix = self.getNumberSuffix(day)
+                
+            self.gui.style_choice.Append("the %d%s %s" % (week_num,
+                                                          weeksuffix,
+                                                          day_name))
+            self.gui.style_choice.Append("the %s%s" % (day, daysuffix))
+        elif freq == "Weekly":
+            self.gui.style_choice.Append(day_name)
+        self.gui.style_choice.Select(0)
+    
+    def updateFreq(self, evt=None):
+        selection = self.gui.freq_choice.GetStringSelection() 
+        if selection == "Weekly":
+            self.recc_freq = "weekly"
+            self.gui.freq_label.SetLabel("week(s)")
+            self.enableRepeat()
+        elif selection == "Monthly":
+            self.recc_freq = "monthly"
             self.gui.freq_label.SetLabel("month(s)")
+            self.enableRepeat()
+        else:
+            self.recc_freq = None
+            self.enableRepeat(False)
+        self.updateRepeatStyle()
             
     def addJob(self, evt=None):
-        client = self.gui.client_entry.GetValue()
-        frequency = self.gui.freq_choice.GetValue()
-        count = self.gui.count_combo.GetValue()
+        self.recc_interval = self.gui.count_combo.GetStringSelection()
+        if self.recc_interval == "":
+            self.recc_interval = 1
+            
+        self.setRRule()
+        
+        client = self.contact
+        gcal.addJob(self.date, client, contacts, self.recc_rrule)
+        
+        main.fetchEvents(self.date, True)
+        wxcal.colorCodeCalendar()
+        wxcal.activateDate(self.date)
+        joblist.getDaysEvents(self.date)
+        
+        self.gui.Close()
 
 class ContactsWindow():
     def __init__(self, choose=False):
@@ -325,15 +485,17 @@ class Main:
         window.prev_time_button.Bind(wx.EVT_BUTTON, lambda evt: self.changeDate("backward"))
         
         self.events = self.fetchEvents(self.curr_date)
+        self.contacts = self.fetchContacts()
         
-        window.add_job_button.Bind(wx.EVT_BUTTON, self.addJob)
-        
-    def addJob(self, evt):
-        addjob = AddJobWindow()
-        addjob.gui.ShowModal()
+    def fetchContacts(self):
+        clist = contacts.getAllContactsInGroup("Clients")
+        self.contacts = clist
     
-    def fetchEvents(self, date):
-        month = gcal.getEventsList(date)
+    def fetchEvents(self, date, update=False):
+        if not update:
+            month = gcal.getEventsList(date)
+        else:
+            month = None
         if not month:
             window.statusbar.SetStatusText("Updating...")
             month = gcal.getEventsList(date, True)
@@ -374,6 +536,7 @@ class Main:
         wxcal.setCalendarTitle(self.curr_date.year, self.curr_date.month)
         wxcal.calendar.setMonth(self.curr_date.year, self.curr_date.month)
         wxcal.colorCodeCalendar()
+        wxcal.activateDate(self.curr_date)
         
         dayview.setWeekContainingDate(self.curr_date)
     
@@ -420,6 +583,7 @@ if __name__ == '__main__':
     
     wxcal.colorCodeCalendar()
     dayview.setWeekContainingDate(datetime.date.today())
+    wxcal.activateDate(main.curr_date)
     
     window.Show()
     app.MainLoop()
